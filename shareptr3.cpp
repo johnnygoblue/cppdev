@@ -7,6 +7,7 @@
 #include <string>
 #include <iostream>
 
+// this is a functor that allows SharedMemoryDetacher to be called like normal function
 class SharedMemoryDetacher
 {
 	public:
@@ -32,6 +33,7 @@ std::shared_ptr<int> getSharedIntMemory(int num)
 	if (mem == MAP_FAILED) {
 		throw std::string(strerror(errno));
 	}
+	// here we use SharedMemoryDetacher as the deleter for getSharedIntMemory of type shared_ptr<int>
 	return std::shared_ptr<int>(static_cast<int*>(mem), SharedMemoryDetacher());
 }
 
