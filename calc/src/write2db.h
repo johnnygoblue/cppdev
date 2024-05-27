@@ -2,6 +2,7 @@
 #include <string>
 
 #include <sqlite3.h> // Include the SQLite header file
+
 // Define a struct to hold the log statistics
 typedef struct LogStats {
     int date;
@@ -18,7 +19,7 @@ typedef struct LogStats {
     double stddevAmount;
 } LogStats;
 
-// Function to execute an SQL statement and check for errors
+// function to execute an SQL statement and check for errors
 void checkSQLiteError(int rc, sqlite3* db) {
     if (rc != SQLITE_OK) {
         std::cerr << "SQLite error: " << sqlite3_errmsg(db) << std::endl;
@@ -27,6 +28,7 @@ void checkSQLiteError(int rc, sqlite3* db) {
     }
 }
 
+// preapare LogStats record to be inserted into database table
 void insertLogStats(sqlite3* db, std::string tb_name, const LogStats& stats) {
     std::string insertSQL = "INSERT OR REPLACE INTO " + tb_name + " (date, tt, "
         "numberOfLogs, maxActiveOrders, meanActiveOrders, medianActiveOrders, "
@@ -64,6 +66,13 @@ void insertLogStats(sqlite3* db, std::string tb_name, const LogStats& stats) {
     sqlite3_finalize(stmt);
 }
 
+// opens database and create table if not already existent then inserts the 
+// LogStats record into said table, closes databse after work is done
+//
+// Arguments:
+//      <stats> log stats to be inserted
+//      <tb_name> table name
+//      <outputDB> path to database file
 int write2db(LogStats stats, std::string tb_name, std::string outputDB) {
     sqlite3* db; // SQLite database object
     int rc;      // Result code

@@ -12,8 +12,6 @@
 #include "calc.h"
 #include "write2db.h"
 
-using namespace std;
-
 /****************************
  * Client 端的log要先做前處理
  * 委託異動 => OrderUpdate
@@ -43,13 +41,13 @@ using ActiveOrderPair = std::pair<int, double>; // <number of active orders, tot
  * 09:13:01.021246 11 [Trace][][OrderUpdate]Tradetron 09:13:01.003 779c0098490 g01Cs C703001699 2615 IntraDayOdd ROD Buy 63.8 999 0000=CancelSuccess RR 
 */
 
-LogStats computeStats(string filename, vector<ActiveOrderPair> &data, const vector<string> &checkTimes, int count, int secondsPerInterval)
+LogStats computeStats(std::string filename, std::vector<ActiveOrderPair> &data, const std::vector<std::string> &checkTimes, int count, int secondsPerInterval)
 {
     size_t size = data.size();
     size_t dotPos = filename.find_last_of('.'); // we might have relative path in fron (../dir/filename) hence use last of 
     LogStats ret;
-    ret.date = dotPos == string::npos ? 0 : stoi(filename.substr(dotPos - 8, 8));
-    ret.tt = dotPos == string::npos ? "" : filename.substr(dotPos + 1);
+    ret.date = dotPos == std::string::npos ? 0 : stoi(filename.substr(dotPos - 8, 8));
+    ret.tt = dotPos == std::string::npos ? "" : filename.substr(dotPos + 1);
     ret.numberOfLogs = count;
 
     // find max and its index then display max
@@ -110,31 +108,31 @@ LogStats computeStats(string filename, vector<ActiveOrderPair> &data, const vect
 } 
 
 void showStats(const LogStats &stats, int sampleRate) {
-    cout << "date = " << stats.date << endl;
-    cout << "sampling every " << sampleRate << " second(s)" << endl;
-    cout << "processed " << stats.numberOfLogs << " entries" << endl;
-    cout << "activeOrders: [max=" << stats.maxActiveOrders << "] ";
-    cout << "[mean=" << stats.meanActiveOrders << "] ";
-    cout << "[median=" << stats.medianActiveOrders << "] ";
-    cout << "[stddev=" << stats.stddevActiveOrders << "]" << endl;
-    cout << "orderAmount: [max=" << stats.maxAmount << "] ";
-    cout << "[mean=" << stats.meanAmount << "] ";
-    cout << "[median=" << stats.medianAmount << "] ";
-    cout << "[min=" << stats.minAmount << "] ";
-    cout << "[stddev=" << stats.stddevAmount << "]" << endl;
+    std::cout << "date = " << stats.date << std::endl;
+    std::cout << "sampling every " << sampleRate << " second(s)" << std::endl;
+    std::cout << "processed " << stats.numberOfLogs << " entries" << std::endl;
+    std::cout << "activeOrders: [max=" << stats.maxActiveOrders << "] ";
+    std::cout << "[mean=" << stats.meanActiveOrders << "] ";
+    std::cout << "[median=" << stats.medianActiveOrders << "] ";
+    std::cout << "[stddev=" << stats.stddevActiveOrders << "]" << std::endl;
+    std::cout << "orderAmount: [max=" << stats.maxAmount << "] ";
+    std::cout << "[mean=" << stats.meanAmount << "] ";
+    std::cout << "[median=" << stats.medianAmount << "] ";
+    std::cout << "[min=" << stats.minAmount << "] ";
+    std::cout << "[stddev=" << stats.stddevAmount << "]" << std::endl;
 }
 
 int printUsage(char *progname)
 {
-    cerr << "Usage: " << progname << " [-v] [-f filename] [-s intervalSeconds] [-o outputDB]" << endl;
+    std::cerr << "Usage: " << progname << " [-v] [-f filename] [-s intervalSeconds] [-o outputDB]" << std::endl;
     return 1;
 }
 
 int main(int argc, char* argv[])
 {
     bool verbose = false;
-    string filename;
-    string outputDB;
+    std::string filename;
+    std::string outputDB;
     int opt;
     int secondsPerInterval = 0;
 
@@ -150,7 +148,7 @@ int main(int argc, char* argv[])
                 outputDB = optarg;
                 break;
             case 's':
-                secondsPerInterval = stoi(optarg);
+                secondsPerInterval = std::stoi(optarg);
                 break;
             case 'h':
                 return printUsage(argv[0]);
@@ -166,21 +164,21 @@ int main(int argc, char* argv[])
         secondsPerInterval = 30; // default use 30 seconds
     }
 
-    unordered_map<string, int> activeOrders;  // <orderId, qty>
-    vector<string> checkTimes = genCheckPoints("09:10:00", "13:24:50", secondsPerInterval);
+    std::unordered_map<std::string, int> activeOrders;  // <orderId, qty>
+    std::vector<std::string> checkTimes = genCheckPoints("09:10:00", "13:24:50", secondsPerInterval);
     size_t totalCheckPoints = checkTimes.size();
 
     int idx = 0; // the index of time points, e.g. checkPoints has time1, time2, time3, ... etc in crono order. time1 has index 0
-    vector<bool> indexStatus = vector<bool>(totalCheckPoints, false);
-    vector<ActiveOrderPair> activeOrdersAtCheckTime = vector<ActiveOrderPair>(checkTimes.size(), ActiveOrderPair(0, 0.0));
+    std::vector<bool> indexStatus = std::vector<bool>(totalCheckPoints, false);
+    std::vector<ActiveOrderPair> activeOrdersAtCheckTime = std::vector<ActiveOrderPair>(checkTimes.size(), ActiveOrderPair(0, 0.0));
 
-    ifstream inputLog(filename);
+    std::ifstream inputLog(filename);
     if (!inputLog)
     {
-        cerr << "Failed to open log (filename from user input = " << filename << endl;
+        std::cerr << "Failed to open log (filename from user input = " << filename << std::endl;
         return 1;
     }
-    string line;
+    std::string line;
     int count = 0;
     double amount = 0;
     float price = 0;
@@ -189,18 +187,18 @@ int main(int argc, char* argv[])
     while (getline(inputLog, line)) {
         if (line.length() <= 80)
             continue;
-        string currSec = line.substr(0, 8);
-        string orderId = line.substr(76, 5);
+        std::string currSec = line.substr(0, 8);
+        std::string orderId = line.substr(76, 5);
         double prz = 0.0;
         double rounded = 0.0;
         char status;
-        if (line.find("MatchReport") != string::npos) {
+        if (line.find("MatchReport") != std::string::npos) {
             status = 'M';
         } else {
             size_t statusPos = line.find('=');
-            if (statusPos == string::npos)
+            if (statusPos == std::string::npos)
             {
-                cout << "[WARN] parsing error in file " << filename << " line: " << line << endl;
+                std::cout << "[WARN] parsing error in file " << filename << " line: " << line << std::endl;
                 continue;
             }
             status = line[statusPos+1];
@@ -211,20 +209,20 @@ int main(int argc, char* argv[])
             case 'C': // cancel order
             case 'M': // match report
             {
-                std::optional<string> ret_price = getNextNthEntry(line, "Buy", 1);
-                std::optional<string> ret_shares = getNextNthEntry(line, "Buy", 2);
+                std::optional<std::string> ret_price = getNextNthEntry(line, "Buy", 1);
+                std::optional<std::string> ret_shares = getNextNthEntry(line, "Buy", 2);
                 if (ret_price.has_value()) {
                     prz = stod(ret_price.value());
                     rounded = std::round(prz * 100) / 100.0;
                     price = static_cast<float>(rounded);
                 } else {
-                    cout << "[WARN] unable to find matching price in line: " << line << endl;
+                    std::cout << "[WARN] unable to find matching price in line: " << line << std::endl;
                     break;
                 }
                 if (ret_shares.has_value()) {
                     shares = stoi(ret_shares.value());
                 } else {
-                    cout << "[WARN] unable to find matching shares in line: " << line << endl;
+                    std::cout << "[WARN] unable to find matching shares in line: " << line << std::endl;
                     break;
                 }
                 if (status == 'O') {
@@ -246,17 +244,17 @@ int main(int argc, char* argv[])
                 break;
             }
             default:
-                cout << "[WARN] unable to find matching status in line: " << line << endl;
+                std::cout << "[WARN] unable to find matching status in line: " << line << std::endl;
                 break;
         }
         // if this log entry is ahead of the checkTimePoint, use it until the checkTimePoint is ahead
         while (idx < checkTimes.size() && currSec.compare(checkTimes[idx]) > 0 && indexStatus[idx] == false)
         {
             if (verbose) {
-                cout << "currSec=" << currSec << " checkTime=" << checkTimes[idx] <<
-                " [Active orders: " << activeOrders.size() << "] [Amount: " << amount << "]" << endl;
+                std::cout << "currSec=" << currSec << " checkTime=" << checkTimes[idx] <<
+                " [Active orders: " << activeOrders.size() << "] [Amount: " << amount << "]" << std::endl;
             }
-            activeOrdersAtCheckTime[idx] = make_pair(activeOrders.size(), amount);
+            activeOrdersAtCheckTime[idx] = std::make_pair(activeOrders.size(), amount);
             indexStatus[idx] = true;
             idx++;
         }
