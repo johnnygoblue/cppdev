@@ -1,0 +1,12 @@
+Note on building and running tests:
+1. Generate build system files
+    $ cmake -S . -B build
+2. Build the project
+    $ cmake --build build
+3. Run the tests
+    $ cd build
+    $ ctest
+4. Clean up build directory and all generated files
+    $ cmake --build build --target clean-all
+    or
+    $ make clean-all
