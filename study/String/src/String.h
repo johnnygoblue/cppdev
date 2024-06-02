@@ -100,6 +100,8 @@ private:
     static int number;              // counts number of String objects in existence
     static int total_allocation;    // counts total amount of memory allocated
     static bool messages_wanted;    // whether to output constructor/destructor/operator= messages, initially false
+	char& get_char_at (int i) const; // private method that performs bounds checking
+
 };
 
 // non-member overloaded operators
