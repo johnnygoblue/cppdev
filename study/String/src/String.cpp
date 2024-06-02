@@ -10,7 +10,7 @@ bool String::messages_wanted = false;
 
 String::String(const char* cstr_) : data(nullptr), length(0), allocation(0) {
     if (messages_wanted)
-        std::cout << "String(const char* cstr_) called with: " << (cstr_ ? cstr_ : "") << std::endl;
+        std::cout << "(CStringConstructor) String(const char* cstr_) called with: " << (cstr_ ? cstr_ : "") << std::endl;
 
     if (cstr_) {
         length = std::strlen(cstr_);
@@ -27,7 +27,7 @@ String::String(const char* cstr_) : data(nullptr), length(0), allocation(0) {
 
 String::String(const String& original) : data(nullptr), length(0), allocation(0) {
     if (messages_wanted)
-        std::cout << "String(const String& original) called with: " << original.data << std::endl;
+        std::cout << "(CopyConstructor) String(const String& original) called with: " << original.data << std::endl;
 
     length = original.length;
     allocation = length + 1;
@@ -40,7 +40,7 @@ String::String(const String& original) : data(nullptr), length(0), allocation(0)
 
 String::String(String&& original) noexcept : data(original.data), length(original.length), allocation(original.allocation) {
     if (messages_wanted)
-        std::cout << "String(String&& original) called with: " << original.data << std::endl;
+        std::cout << "(MoveConstructor) String(String&& original) called with: " << original.data << std::endl;
 
     original.data = &a_null_byte;
     original.length = 0;
@@ -51,7 +51,7 @@ String::String(String&& original) noexcept : data(original.data), length(origina
 
 String::~String() noexcept {
     if (messages_wanted)
-        std::cout << "~String() called with: " << data << std::endl;
+        std::cout << "(Destructor) ~String() called with: " << data << std::endl;
 
     if (data != &a_null_byte) {
         delete[] data;
@@ -64,7 +64,7 @@ String::~String() noexcept {
 String& String::operator=(const String& rhs) {
     if (this != &rhs) {
         if (messages_wanted)
-            std::cout << "operator=(const String& rhs) called with: " << rhs.data << std::endl;
+            std::cout << "(CopyAssignment) operator=(const String& rhs) called with: " << rhs.data << std::endl;
 
         String temp(rhs);
         swap(temp);
@@ -74,7 +74,7 @@ String& String::operator=(const String& rhs) {
 
 String& String::operator=(const char* rhs) {
     if (messages_wanted)
-        std::cout << "operator=(const char* rhs) called with: " << (rhs ? rhs : "") << std::endl;
+        std::cout << "(CStringAssignment) operator=(const char* rhs) called with: " << (rhs ? rhs : "") << std::endl;
 
     String temp(rhs);
     swap(temp);
@@ -84,7 +84,7 @@ String& String::operator=(const char* rhs) {
 String& String::operator=(String&& rhs) noexcept {
     if (this != &rhs) {
         if (messages_wanted)
-            std::cout << "operator=(String&& rhs) called with: " << rhs.data << std::endl;
+            std::cout << "(MoveAssignment) operator=(String&& rhs) called with: " << rhs.data << std::endl;
 
         swap(rhs);
     }
@@ -92,17 +92,20 @@ String& String::operator=(String&& rhs) noexcept {
 }
 
 char& String::operator[](int i) {
-    if (i < 0 || i >= length)
-        throw String_exception("Index out of bounds");
-
-    return data[i];
+    return const_cast<char&>(get_char_at(i));
 }
 
 const char& String::operator[](int i) const {
-    if (i < 0 || i >= length)
-        throw String_exception("Index out of bounds");
+	if (messages_wanted)
+		std::cout << "(ConstReturnIndexOperator) called" << std::endl;
+    return get_char_at(i);
+}
 
-    return data[i];
+char& String::get_char_at(int i) const {
+	if (i < 0 || i >= length) {
+		throw String_exception("Index out of bounds");
+	}
+	return data[i];
 }
 
 void String::clear() {
