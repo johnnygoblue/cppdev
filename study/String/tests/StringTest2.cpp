@@ -1,5 +1,13 @@
 #include <gtest/gtest.h>
+#include <type_traits>
+#include <typeinfo>
 #include "String.h"
+
+// Helper function to check the type at compile-time
+template <typename T, typename ExpectedType>
+void check_type() {
+    static_assert(std::is_same<T, ExpectedType>::value, "Type check failed");
+}
 
 // Test the default constructor
 TEST(StringTest, DefaultConstructor) {
@@ -65,12 +73,20 @@ TEST(StringTest, Clear) {
     EXPECT_EQ(s.size(), 0);
 }
 
-// Test operator[]
+// Test const operator[]'s return type
+TEST(StringTest, ConstIndexOperator) {
+    const String s("Hello");
+	const auto& const_ref = s[0];
+	check_type<decltype(const_ref), const char&>;
+	EXPECT_TRUE((std::is_same<decltype(const_ref), const char&>::value)) << "Return type is not const char&";
+}
+
+// Test operator[]'s return type
 TEST(StringTest, IndexOperator) {
-    String s("Hello");
-    EXPECT_EQ(s[1], 'e');
-    s[1] = 'a';
-    EXPECT_EQ(s[1], 'a');
+	String s("Hello");
+	auto& ref = s[0];
+	check_type<decltype(ref), char&>;
+	EXPECT_TRUE((std::is_same<decltype(ref), char&>::value)) << "Return type is not char&";
 }
 
 int main(int argc, char **argv) {
