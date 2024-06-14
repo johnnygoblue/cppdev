@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 # Set the project name and version
-project(StringProject VERSION 1.0)
+project(StringProject VERSION 1.1)
 
 # Specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -17,6 +17,10 @@ FetchContent_Declare(
   URL https://github.com/google/googletest/archive/release-1.11.0.zip
 )
 FetchContent_MakeAvailable(googletest)
+
+# Ensure gtest and gmock are linked
+set(GTEST_SHUFFLE 1)
+set(GTEST_DEATH_TEST_USE_FORK 1)
 
 # Enable testing
 enable_testing()

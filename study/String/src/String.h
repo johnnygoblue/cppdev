@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <optional>
 
+#include "StringAllocator.h"
+
 /* Simple exception class for reporting String errors */
 struct String_exception {
     String_exception(const char* msg_) : msg(msg_) {}
@@ -16,11 +18,11 @@ class String {
 public:
     // Default initialization is to contain an empty string with no allocation.
     // If a non-empty C-string is supplied, this String gets minimum allocation.
-    String(const char* cstr_ = "");
+    String(const char* cstr_ = "", StringAllocator* allocator_ = nullptr);
 
     // The copy constructor initializes this String with the original's data,
     // and gets minimum allocation.
-    String(const String& original);
+    String(const String& original, StringAllocator* allocator_ = nullptr);
 
     // Move constructor - take original's data, and set the original String
     // member variables to the empty state (do not initialize "this" String and swap).
@@ -92,6 +94,7 @@ private:
     char* data;           // pointer to the internal C-string
     int length;           // length of the internal C-string (size)
     int allocation;       // total allocation including the null terminator
+    StringAllocator* allocator; // abstract allocator for testing purposes
 
     static char a_null_byte; // to hold a null byte for empty string representation
 
@@ -100,8 +103,11 @@ private:
     static int number;              // counts number of String objects in existence
     static int total_allocation;    // counts total amount of memory allocated
     static bool messages_wanted;    // whether to output constructor/destructor/operator= messages, initially false
-	char& get_char_at (int i) const; // private method that performs bounds checking
+    char& get_char_at (int i) const; // private method that performs bounds checking
 
+    void init_allocator(StringAllocator* allocator_) {
+        allocator = allocator_ ? allocator_ : new DefaultStringAllocator();
+    }
 };
 
 // non-member overloaded operators

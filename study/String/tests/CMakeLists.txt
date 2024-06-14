@@ -10,7 +10,7 @@ foreach(TEST_SOURCE ${TEST_SOURCES})
     add_executable(${TEST_NAME} ${TEST_SOURCE})
 
     # Link the String library and Google Test libraries
-    target_link_libraries(${TEST_NAME} PRIVATE StringLib GTest::gtest_main)
+    target_link_libraries(${TEST_NAME} PRIVATE StringLib GTest::gtest_main GTest::gmock GTest::gmock_main)
 
     # Add the test to CTest
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
