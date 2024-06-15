@@ -9,6 +9,7 @@ int String::number = 0;
 int String::total_allocation = 0;
 bool String::messages_wanted = false;
 
+// C-String/Default constructor
 String::String(const char* cstr_, StringAllocator* allocator_) : data(nullptr), length(0), allocation(0) {
     init_allocator(allocator_);
     if (messages_wanted)
@@ -35,6 +36,7 @@ String::String(const char* cstr_, StringAllocator* allocator_) : data(nullptr), 
     total_allocation += allocation;
 }
 
+// Copy constructor
 String::String(const String& original, StringAllocator* allocator_) : data(nullptr), length(0), allocation(0) {
     init_allocator(allocator_);
     if (messages_wanted)
@@ -57,6 +59,7 @@ String::String(const String& original, StringAllocator* allocator_) : data(nullp
     total_allocation += allocation;
 }
 
+// Move constructor
 String::String(String&& original) noexcept : data(original.data), length(original.length), allocation(original.allocation), allocator(original.allocator) {
     if (messages_wanted)
         std::cout << "(MoveConstructor) String(String&& original) called with: " << original.data << std::endl;
@@ -64,10 +67,44 @@ String::String(String&& original) noexcept : data(original.data), length(origina
     original.data = &a_null_byte;
     original.length = 0;
     original.allocation = 0;
-	original.allocator = nullptr;
+    original.allocator = nullptr;
     ++number;
 }
 
+// C-String copy assignment
+String& String::operator=(const char* rhs) {
+    if (messages_wanted)
+        std::cout << "(CStringAssignment) operator=(const char* rhs) called with: " << (rhs ? rhs : "") << std::endl;
+
+    String temp(rhs); // Strong exception guarantee
+    swap(temp);
+    return *this;
+}
+
+// Copy assignment
+String& String::operator=(const String& rhs) {
+    if (this != &rhs) {
+        if (messages_wanted)
+            std::cout << "(CopyAssignment) operator=(const String& rhs) called with: " << rhs.data << std::endl;
+
+        String temp(rhs); // Strong exception guarantee
+        swap(temp);
+    }
+    return *this;
+}
+
+// Move assignment
+String& String::operator=(String&& rhs) noexcept {
+    if (this != &rhs) {
+        if (messages_wanted)
+            std::cout << "(MoveAssignment) operator=(String&& rhs) called with: " << rhs.data << std::endl;
+
+        swap(rhs);
+    }
+    return *this;
+}
+
+// Destructor
 String::~String() noexcept {
     if (messages_wanted)
         std::cout << "(Destructor) ~String() called with: " << data << std::endl;
@@ -80,40 +117,12 @@ String::~String() noexcept {
     --number;
 }
 
-String& String::operator=(const String& rhs) {
-    if (this != &rhs) {
-        if (messages_wanted)
-            std::cout << "(CopyAssignment) operator=(const String& rhs) called with: " << rhs.data << std::endl;
-
-        String temp(rhs); // Strong exception guarantee
-        swap(temp);
-    }
-    return *this;
-}
-
-String& String::operator=(const char* rhs) {
-    if (messages_wanted)
-        std::cout << "(CStringAssignment) operator=(const char* rhs) called with: " << (rhs ? rhs : "") << std::endl;
-
-    String temp(rhs); // Strong exception guarantee
-    swap(temp);
-    return *this;
-}
-
-String& String::operator=(String&& rhs) noexcept {
-    if (this != &rhs) {
-        if (messages_wanted)
-            std::cout << "(MoveAssignment) operator=(String&& rhs) called with: " << rhs.data << std::endl;
-
-        swap(rhs);
-    }
-    return *this;
-}
-
+// Subscript/Indexing operator
 char& String::operator[](int i) {
     return const_cast<char&>(get_char_at(i));
 }
 
+// Subscript/Indexing operator
 const char& String::operator[](int i) const {
     if (messages_wanted)
         std::cout << "(ConstReturnIndexOperator) called" << std::endl;
@@ -127,6 +136,7 @@ char& String::get_char_at(int i) const {
     return data[i];
 }
 
+// Set to null state
 void String::clear() {
     if (messages_wanted)
         std::cout << "clear() called" << std::endl;
@@ -135,6 +145,7 @@ void String::clear() {
     swap(temp);
 }
 
+// Concatenate single character
 String& String::operator+=(char rhs) {
     if (messages_wanted)
         std::cout << "operator+=(char rhs) called with: " << rhs << std::endl;
@@ -165,6 +176,7 @@ String& String::operator+=(char rhs) {
     return *this;
 }
 
+// Concatentate C-String
 String& String::operator+=(const char* rhs) {
     if (messages_wanted)
         std::cout << "operator+=(const char* rhs) called with: " << (rhs ? rhs : "") << std::endl;
@@ -198,6 +210,7 @@ String& String::operator+=(const char* rhs) {
     return *this;
 }
 
+// Concatenate String
 String& String::operator+=(const String& rhs) {
     if (messages_wanted)
         std::cout << "operator+=(const String& rhs) called with: " << rhs.data << std::endl;
@@ -230,6 +243,7 @@ String& String::operator+=(const String& rhs) {
     return *this;
 }
 
+// Implement our own swap
 void String::swap(String& other) noexcept {
     if (messages_wanted)
         std::cout << "swap(String& other) called" << std::endl;
