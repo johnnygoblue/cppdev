@@ -1,0 +1,7 @@
+enable_testing()
+
+add_executable(packet_validator_test packet_validator_test.cpp)
+target_link_libraries(packet_validator_test gtest gtest_main packet_validator)
+
+include(GoogleTest)
+gtest_discover_tests(packet_validator_test)
