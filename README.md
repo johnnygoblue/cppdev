@@ -10,4 +10,7 @@ The study folder contains practice code for learning C++
 * Unordered_list
     * A class template for a list container with ordering
     * User can create, destroy, copy, assign, insert, and clear
-    * Provides basic and strong exception guarantee on operations that may throw
+    * Provide basic and strong exception guarantee on operations that may throw
+* packet_validator
+    * A simple peer-to-peer network protocol
+    * Provide centralized rate control for each node
