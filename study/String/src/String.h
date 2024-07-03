@@ -5,24 +5,30 @@
 #include <cstring>
 #include <stdexcept>
 #include <optional>
+#include <memory>
 
 #include "StringAllocator.h"
 
-/* Simple exception class for reporting String errors */
-struct String_exception {
-    String_exception(const char* msg_) : msg(msg_) {}
-    const char* msg;
-};
-
+template<typename Allocator = DefaultStringAllocator>
 class String {
 public:
-    // Default initialization is to contain an empty string with no allocation.
-    // If a non-empty C-string is supplied, this String gets minimum allocation.
-    String(const char* cstr_ = "", StringAllocator* allocator_ = nullptr);
+    using allocator_type = Allocator;
+
+    // Default constructor
+    String(const Allocator& allocator_ = Allocator()) :
+        data(&a_null_byte), length(0), allocation(1), allocator(allocator_) {
+            ++number;
+            total_allocation += allocation;
+    }
+
+    //template<typename T> see below on the current status of this
+    //String(const T& input, const Allocator& allocator_ = Allocator());
+
+    String(const char* cstr_, const Allocator& allocator_ = Allocator());
 
     // The copy constructor initializes this String with the original's data,
     // and gets minimum allocation.
-    String(const String& original, StringAllocator* allocator_ = nullptr);
+    String(const String& original, const Allocator& allocator_ = Allocator());
 
     // Move constructor - take original's data, and set the original String
     // member variables to the empty state (do not initialize "this" String and swap).
@@ -44,7 +50,7 @@ public:
 
     // Accessors
     // Return a pointer to the internal C-string
-    const char* c_str() const { return data; }
+    const char* c_str() const { return data ? data : &a_null_byte; }
 
     // Return size (length) of internal C-string in this String
     int size() const { return length; }
@@ -91,10 +97,14 @@ public:
     static void set_messages_wanted(bool messages_wanted_) { messages_wanted = messages_wanted_; }
 
 private:
-    char* data;           // pointer to the internal C-string
-    int length;           // length of the internal C-string (size)
-    int allocation;       // total allocation including the null terminator
-    StringAllocator* allocator; // abstract allocator for testing purposes
+    char* data;                             // pointer to the internal C-string
+    int length;                             // length of the internal C-string (size)
+    int allocation;                         // total allocation including the null terminator
+
+    // abstract allocator for testsing purposes, we store by value to avoid the
+    // nasty dangling reference issues, but since GMock object isn't copy-able
+    // we're outta luck on that aspect
+    allocator_type allocator;
 
     static char a_null_byte; // to hold a null byte for empty string representation
 
@@ -103,21 +113,23 @@ private:
     static int number;              // counts number of String objects in existence
     static int total_allocation;    // counts total amount of memory allocated
     static bool messages_wanted;    // whether to output constructor/destructor/operator= messages, initially false
-    char& get_char_at (int i) const; // private method that performs bounds checking
 
-    void init_allocator(StringAllocator* allocator_) {
-        allocator = allocator_ ? allocator_ : new DefaultStringAllocator();
-    }
+    // internal method to allocate more bytes, used during concatenation
+    void ensure_allocation(int additional_length);
+    // internal method to allocate for constructors
+    void initialize(const char* cstr);
+    char& get_char_at (int i) const; // private method that performs bounds checking
 };
 
+template<typename Allocator>
+char String<Allocator>::a_null_byte = '\0';
+template<typename Allocator>
+int String<Allocator>::number = 0;
+template<typename Allocator>
+int String<Allocator>::total_allocation = 0;
+template<typename Allocator>
+bool String<Allocator>::messages_wanted = false;
 // non-member overloaded operators
-
-// compare lhs and rhs strings; constructor will convert a C-string literal to a String.
-// comparison is based on std::strcmp result compared to 0
-bool operator==(const String& lhs, const String& rhs);
-bool operator!=(const String& lhs, const String& rhs);
-bool operator<(const String& lhs, const String& rhs);
-bool operator>(const String& lhs, const String& rhs);
 
 /* Concatenate a String with another String.
  If one of the arguments is a C-string, the String constructor will automatically create
@@ -125,11 +137,13 @@ bool operator>(const String& lhs, const String& rhs);
  This automatic behavior would be disabled if the String constructor was declared "explicit".
  This function constructs a copy of the lhs in a local String variable,
  then concatenates the rhs to it with operator +=, and returns it. */
-String operator+(const String& lhs, const String& rhs);
+template<typename Allocator>
+String<Allocator> operator+(const String<Allocator>& lhs, const String<Allocator>& rhs);
 
 // Input and output operators
 // The output operator writes the contents of the String to the stream
-std::ostream& operator<<(std::ostream& os, const String& str);
+template<typename Allocator>
+std::ostream& operator<<(std::ostream& os, const String<Allocator>& str);
 
 /* The input operator clears the supplied String, then starts reading the stream.
 It skips initial whitespace, then copies characters into
@@ -137,7 +151,287 @@ the supplied str until whitespace is encountered again. The terminating
 whitespace remains in the input stream, analogous to how string input normally works.
 str is expanded as needed, and retains the final allocation.
 If the input stream fails, str contains whatever characters were read. */
-std::istream& operator>>(std::istream& is, String& str);
+template<typename Allocator>
+std::istream& operator>>(std::istream& is, String<Allocator>& str);
 
+//// Template constructor (This code causes template deduction error in StringTests and I
+//// have no idea how to fix it just yet, so back to basics for now
+//template<typename Allocator>
+//template<typename T>
+//String<Allocator>::String(const T& input, const Allocator& allocator_) :
+//    data(&a_null_byte), length(0), allocation(1), allocator(allocator_) {
+//    if constexpr (std::is_same_v<T, const char*>) {
+//        if (messages_wanted)
+//            std::cout << "(CStringConstructor) String(const char* cstr_) called with: " << (input ? input : "") << std::endl;
+//        initialize(input);
+//    } else if constexpr (std::is_same_v<T, String<Allocator>>) {
+//        if (messages_wanted)
+//            std::cout << "(CopyConstructor) String(const String& original) called with: " << input.data << std::endl;
+//        initialize(input.data);
+//    }
+//    ++number;
+//    total_allocation += allocation;
+//}
+
+
+// C-String constructor
+template<typename Allocator>
+String<Allocator>::String(const char* cstr_, const Allocator& allocator_) :
+    data(nullptr), length(0), allocation(1), allocator(allocator_) {
+    if (messages_wanted)
+        std::cout << "(CStringConstructor) String(const char* cstr_) called with: " << (cstr_ ? cstr_ : "") << std::endl;
+
+    initialize(cstr_);
+
+    ++number;
+    total_allocation += allocation;
+}
+
+// Copy constructor
+template<typename Allocator>
+String<Allocator>::String(const String<Allocator>& original, const Allocator& allocator_) :
+    data(nullptr), length(0), allocation(1), allocator(allocator_) {
+    if (messages_wanted)
+        std::cout << "(CopyConstructor) String(const String& original) called with: " << original.data << std::endl;
+
+    initialize(original.data);
+
+    ++number;
+    total_allocation += allocation;
+}
+
+// Move constructor
+template<typename Allocator>
+String<Allocator>::String(String<Allocator>&& original) noexcept :
+    data(original.data), length(original.length), allocation(original.allocation), allocator(Allocator()) {
+    if (messages_wanted)
+        std::cout << "(MoveConstructor) String(String&& original) called with: " << original.data << std::endl;
+
+    original.data = nullptr;
+    original.length = 0;
+    original.allocation = 0;
+    ++number;
+}
+
+// C-String copy assignment
+template<typename Allocator>
+String<Allocator>& String<Allocator>::operator=(const char* rhs) {
+    if (messages_wanted)
+        std::cout << "(CStringAssignment) operator=(const char* rhs) called with: " << (rhs ? rhs : "") << std::endl;
+
+    String temp(rhs); // Strong exception guarantee
+    swap(temp);
+    return *this;
+}
+
+// Copy assignment
+template<typename Allocator>
+String<Allocator>& String<Allocator>::operator=(const String<Allocator>& rhs) {
+    if (this != &rhs) {
+        if (messages_wanted)
+            std::cout << "(CopyAssignment) operator=(const String& rhs) called with: " << rhs.data << std::endl;
+
+        String temp(rhs); // Strong exception guarantee
+        swap(temp);
+    }
+    return *this;
+}
+
+// Move assignment
+template<typename Allocator>
+String<Allocator>& String<Allocator>::operator=(String<Allocator>&& rhs) noexcept {
+    if (this != &rhs) {
+        if (messages_wanted)
+            std::cout << "(MoveAssignment) operator=(String&& rhs) called with: " << rhs.data << std::endl;
+
+        swap(rhs);
+    }
+    return *this;
+}
+
+// Destructor
+template<typename Allocator>
+String<Allocator>::~String<Allocator>() noexcept {
+    if (messages_wanted)
+        std::cout << "(Destructor) ~String() called with: " << data << std::endl;
+
+    if (length) {
+        allocator.deallocate(data, allocation);
+        total_allocation -= allocation;
+    }
+
+    --number;
+}
+
+// Subscript/Indexing operator
+template<typename Allocator>
+char& String<Allocator>::operator[](int i) {
+    return const_cast<char&>(get_char_at(i));
+}
+
+// Subscript/Indexing operator
+template<typename Allocator>
+const char& String<Allocator>::operator[](int i) const {
+    if (messages_wanted)
+        std::cout << "(ConstReturnIndexOperator) called" << std::endl;
+    return get_char_at(i);
+}
+
+template<typename Allocator>
+char& String<Allocator>::get_char_at(int i) const {
+    if (i < 0 || i >= length) {
+        throw std::runtime_error("Out of bounds");
+    }
+    return data[i];
+}
+
+template<typename Allocator>
+void String<Allocator>::ensure_allocation(int additional_length) {
+    if (length + additional_length >= allocation) {
+        int new_allocation = 2 * (length + additional_length + 1);
+        char* new_data = nullptr;
+        try {
+            new_data = allocator.allocate(new_allocation);
+            std::strcpy(new_data, data);
+        } catch (...) {
+            allocator.deallocate(new_data, new_allocation);
+            throw std::runtime_error("Bad alloc");
+        }
+        if (length) {
+            allocator.deallocate(data, allocation);
+        }
+        data = new_data;
+        allocation = new_allocation;
+        total_allocation += allocation - (length + 1);
+    }
+}
+
+template<typename Allocator>
+void String<Allocator>::initialize(const char* cstr) {
+    if (cstr) {
+        length = std::strlen(cstr);
+        allocation = length + 1;
+        try {
+            data = allocator.allocate(allocation);
+            std::strcpy(data, cstr);
+        } catch (...) {
+            allocator.deallocate(data, allocation);
+            throw std::runtime_error("Bad alloc");
+        }
+    }
+}
+
+// Set to null state
+template<typename Allocator>
+void String<Allocator>::clear() {
+    if (messages_wanted)
+        std::cout << "clear() called" << std::endl;
+
+    String temp;
+    swap(temp);
+}
+
+// Concatenate single character
+template<typename Allocator>
+String<Allocator>& String<Allocator>::operator+=(char rhs) {
+    if (messages_wanted)
+        std::cout << "operator+=(char rhs) called with: " << rhs << std::endl;
+
+    ensure_allocation(1);
+
+    data[length] = rhs;
+    data[++length] = '\0';
+    return *this;
+}
+
+// Concatentate C-String
+template<typename Allocator>
+String<Allocator>& String<Allocator>::operator+=(const char* rhs) {
+    if (messages_wanted)
+        std::cout << "operator+=(const char* rhs) called with: " << (rhs ? rhs : "") << std::endl;
+
+    if (rhs && *rhs) {
+        int rhs_length = std::strlen(rhs);
+        ensure_allocation(rhs_length);
+        std::strcat(data, rhs);
+        length += rhs_length;
+    }
+    return *this;
+}
+
+// Concatenate String
+template<typename Allocator>
+String<Allocator>& String<Allocator>::operator+=(const String<Allocator>& rhs) {
+    if (messages_wanted)
+        std::cout << "operator+=(const String& rhs) called with: " << rhs.data << std::endl;
+
+    if (rhs.length > 0) {
+        ensure_allocation(rhs.length);
+
+        std::strcat(data, rhs.data);
+        length += rhs.length;
+    }
+    return *this;
+}
+
+// Implement our own swap
+template<typename Allocator>
+void String<Allocator>::swap(String<Allocator>& other) noexcept {
+    if (messages_wanted)
+        std::cout << "swap(String& other) called" << std::endl;
+
+    std::swap(data, other.data);
+    std::swap(length, other.length);
+    std::swap(allocation, other.allocation);
+}
+
+template<typename Allocator>
+bool operator==(const String<Allocator>& lhs, const String<Allocator>& rhs) {
+    return std::strcmp(lhs.c_str(), rhs.c_str()) == 0;
+}
+
+template<typename Allocator>
+bool operator!=(const String<Allocator>& lhs, const String<Allocator>& rhs) {
+    return !(lhs == rhs);
+}
+
+template<typename Allocator>
+bool operator<(const String<Allocator>& lhs, const String<Allocator>& rhs) {
+    return std::strcmp(lhs.c_str(), rhs.c_str()) < 0;
+}
+
+template<typename Allocator>
+bool operator>(const String<Allocator>& lhs, const String<Allocator>& rhs) {
+    return rhs < lhs;
+}
+
+template<typename Allocator>
+String<Allocator> operator+(const String<Allocator>& lhs, const String<Allocator>& rhs) {
+    String result(lhs);
+    result += rhs;
+    return result;
+}
+
+
+template<typename Allocator>
+std::ostream& operator<<(std::ostream& os, const String<Allocator>& str) {
+    return os << str.c_str();
+}
+
+template<typename Allocator>
+std::istream& operator>>(std::istream& is, String<Allocator>& str) {
+    str.clear();
+    char ch;
+    while (is.get(ch) && std::isspace(ch)) {
+        // Skip initial whitespace
+    }
+
+    if (is) {
+        do {
+            str += ch;
+        } while (is.get(ch) && !std::isspace(ch));
+    }
+
+    return is;
+}
 #endif // STRING_H
-
