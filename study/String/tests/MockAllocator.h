@@ -4,10 +4,14 @@
 #include "StringAllocator.h"
 #include <gmock/gmock.h>
 
-class MockAllocator : public StringAllocator {
+class MockAllocator : public MyAllocator {
 public:
-    MOCK_METHOD(char*, allocate, (std::size_t size), (override));
-    MOCK_METHOD(void, deallocate, (char* ptr), (override));
+    MockAllocator() = default;
+    MOCK_METHOD(char*, allocate, (std::size_t size), (const override));
+    MOCK_METHOD(void, deallocate, (char* ptr, std::size_t size), (const override));
+    MockAllocator(const MockAllocator&) = default; // just so String's ctor works
+    MockAllocator& operator=(const MockAllocator&) = delete;
+    ~MockAllocator() = default;
 };
 
 #endif // MOCKALLOCATOR_H
