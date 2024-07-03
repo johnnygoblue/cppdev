@@ -5,13 +5,22 @@
 class StringTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        String::set_messages_wanted(false);  // Disable messages for cleaner test output
+        String<>::set_messages_wanted(true);  // Disable messages for cleaner test output
     }
 };
 
 // Test default constructor
 TEST_F(StringTest, DefaultConstructor) {
     String s;
+    EXPECT_STREQ(s.c_str(), "");
+    EXPECT_EQ(s.size(), 0);
+    EXPECT_EQ(s.get_allocation(), 1);  // Null terminator
+}
+
+// Test default constructor with std::allocator
+TEST_F(StringTest, DefaultConstructorWithStdAlloc) {
+    std::allocator<char> stdAllocator;
+    String<std::allocator<char>> s(stdAllocator);
     EXPECT_STREQ(s.c_str(), "");
     EXPECT_EQ(s.size(), 0);
     EXPECT_EQ(s.get_allocation(), 1);  // Only null terminator
@@ -26,6 +35,15 @@ TEST_F(StringTest, CStringConstructor) {
     EXPECT_EQ(s.get_allocation(), 6);  // Length + null terminator
 }
 
+// Test constructor with empty C-string
+TEST_F(StringTest, EmptyCStringConstructor) {
+    const char* test_str = "";
+    String s(test_str);
+    EXPECT_STREQ(s.c_str(), test_str);
+    EXPECT_EQ(s.size(), 0);
+    EXPECT_EQ(s.get_allocation(), 1);  // Length + null terminator
+}
+
 // Test copy constructor
 TEST_F(StringTest, CopyConstructor) {
     String s1("Hello");
@@ -35,6 +53,15 @@ TEST_F(StringTest, CopyConstructor) {
     EXPECT_EQ(s2.get_allocation(), 6);  // Length + null terminator
 }
 
+// Test copy constructor from empty
+TEST_F(StringTest, CopyConstructorFromEmpty) {
+    String s1("");
+    String s2(s1);
+    EXPECT_STREQ(s2.c_str(), "");
+    EXPECT_EQ(s2.size(), 0);
+    EXPECT_EQ(s2.get_allocation(), 1);  // Length + null terminator
+}
+
 // Test move constructor
 TEST_F(StringTest, MoveConstructor) {
     String s1("Hello");
@@ -42,6 +69,7 @@ TEST_F(StringTest, MoveConstructor) {
     EXPECT_STREQ(s2.c_str(), "Hello");
     EXPECT_EQ(s2.size(), 5);
     EXPECT_EQ(s2.get_allocation(), 6);  // Length + null terminator
+    EXPECT_EQ(s1.size(), 0);
     EXPECT_STREQ(s1.c_str(), "");  // s1 should be empty after move
 }
 
@@ -83,7 +111,7 @@ TEST_F(StringTest, OperatorSquareBrackets) {
     EXPECT_EQ(s[2], 'l');
     EXPECT_EQ(s[3], 'l');
     EXPECT_EQ(s[4], 'o');
-    EXPECT_THROW(s[5], String_exception);  // Out of bounds
+    EXPECT_THROW(s[5], std::exception);  // Out of bounds
 }
 
 // Test clear
@@ -92,7 +120,7 @@ TEST_F(StringTest, Clear) {
     s.clear();
     EXPECT_STREQ(s.c_str(), "");
     EXPECT_EQ(s.size(), 0);
-    EXPECT_EQ(s.get_allocation(), 1);  // Only null terminator
+    EXPECT_EQ(s.get_allocation(), 1);  // Null terminator
 }
 
 // Test concatenation with char
@@ -178,4 +206,3 @@ int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
-
