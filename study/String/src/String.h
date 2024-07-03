@@ -9,6 +9,15 @@
 
 #include "StringAllocator.h"
 
+// The below code is to help determine if T is of type char array
+// In template deduction, const char* is deduced as char[N] instead
+// of the intended type const char*
+template<typename T>
+struct is_char_array : std::false_type {};
+
+template<typename T, std::size_t N>
+struct is_char_array<T[N]> : std::is_same<T, char> {};
+
 template<typename Allocator = DefaultStringAllocator>
 class String {
 public:
@@ -21,8 +30,23 @@ public:
             total_allocation += allocation;
     }
 
-    //template<typename T> see below on the current status of this
-    //String(const T& input, const Allocator& allocator_ = Allocator());
+    //// Templated constructor is an attempt to combine two constructors to avoid
+    //// code duplication (WIP)
+    //template<typename T>
+    //String(const T&& input, const Allocator& allocator_ = Allocator()) :
+    //    data(&a_null_byte), length(0), allocation(1), allocator(allocator_) {
+    //    if constexpr (is_char_array<T>::value) {
+    //        if (messages_wanted)
+    //            std::cout << "(CStringConstructor) String(const char* cstr_) called with: " << (input ? input : "") << std::endl;
+    //        initialize(input);
+    //    } else if constexpr (std::is_same_v<T, String<Allocator>>) {
+    //        if (messages_wanted)
+    //            std::cout << "(CopyConstructor) String(const String& original) called with: " << input.data << std::endl;
+    //        initialize(input.data);
+    //    }
+    //    ++number;
+    //    total_allocation += allocation;
+    //}
 
     String(const char* cstr_, const Allocator& allocator_ = Allocator());
 
@@ -153,26 +177,6 @@ str is expanded as needed, and retains the final allocation.
 If the input stream fails, str contains whatever characters were read. */
 template<typename Allocator>
 std::istream& operator>>(std::istream& is, String<Allocator>& str);
-
-//// Template constructor (This code causes template deduction error in StringTests and I
-//// have no idea how to fix it just yet, so back to basics for now
-//template<typename Allocator>
-//template<typename T>
-//String<Allocator>::String(const T& input, const Allocator& allocator_) :
-//    data(&a_null_byte), length(0), allocation(1), allocator(allocator_) {
-//    if constexpr (std::is_same_v<T, const char*>) {
-//        if (messages_wanted)
-//            std::cout << "(CStringConstructor) String(const char* cstr_) called with: " << (input ? input : "") << std::endl;
-//        initialize(input);
-//    } else if constexpr (std::is_same_v<T, String<Allocator>>) {
-//        if (messages_wanted)
-//            std::cout << "(CopyConstructor) String(const String& original) called with: " << input.data << std::endl;
-//        initialize(input.data);
-//    }
-//    ++number;
-//    total_allocation += allocation;
-//}
-
 
 // C-String constructor
 template<typename Allocator>
