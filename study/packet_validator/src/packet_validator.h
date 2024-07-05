@@ -1,5 +1,36 @@
 #pragma once
 
+/*
+Consider an abstract peer-to-peer network. Peers are identified by IP addresses (IPv4).
+There is a protocol allowing peers to send data chunks. In order to send data, a sender must
+open a connection and a receiver must acknowledge the connection. Network traffic is
+represented as a set of packets in the following format:
+
+<src_ip>:<dst_ip>:<message_type>[:<payload>]
+
+E.g.:
+127.0.0.1:127.0.0.2:O
+127.0.0.2:127.0.0.1:A
+127.0.0.1:127.0.0.2:D:abcde
+127.0.0.1:127.0.0.2:D:abababababa
+127.0.0.1:127.0.0.2:C
+
+The message types are:
+O - open connection
+A - acknowledge connection
+D - data chunk
+C - close connection
+
+The rules for the connections are as follows:
+Connections are unidirectional, i.e. a connection opened by peer A to peer B is unrelated
+to a connection opened by B to A. A sender must not open a second connection to the same
+destination until the first one is closed. A sender may open concurrent connections to
+different destinations, but not more than a `connections_per_ip` limit. Only the sender
+can close the connection. The connection is considered implicitly closed if there is no
+packet from the sender within a `timeout_sec` period. No more than `bytes_per_connection`
+amount of data are allowed within a connection.
+*/
+
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
