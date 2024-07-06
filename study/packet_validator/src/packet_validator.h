@@ -34,7 +34,7 @@ amount of data are allowed within a connection.
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <deque>
+#include <queue>
 #include <mutex>
 #include <string_view>
 #include <optional>
@@ -54,8 +54,8 @@ public:
     int handle_timeouts(time_point now);
 
 private:
-    using connection_id = std::string; // connection_id is of format "<src_ip>:<dst_ip>"
     using sender_ip = std::string;     // cannot open connections more than `connections_per_ip`
+    using connection_id = std::string; // connection_id is of format "<src_ip>:<dst_ip>"
     struct Connection {
         time_point last_active;        // time point from last packet
         size_t bytes_sent;             // number of data bytes already sent by this connection
@@ -67,12 +67,22 @@ private:
         std::optional<std::string_view> payload;
     };
 
+    struct ConnectionTimeout {
+        time_point last_active;
+        connection_id conn_id;
+        bool operator<(const ConnectionTimeout& other) const {
+            return last_active > other.last_active;
+        }
+    };
+
     friend std::ostream& operator<<(std::ostream& os, const ParsedData& data);
 
     config cfg_;
     std::mutex mtx_;
     std::unordered_map<connection_id, Connection> connections_;
     std::unordered_map<sender_ip, std::unordered_set<std::string>> open_connections_per_ip_;
+    std::unordered_map<connection_id, ConnectionTimeout> timeout_map_;
+    std::priority_queue<ConnectionTimeout> timeout_queue_;
 
     void cleanup_connections(time_point now);
     ParsedData parse_packet(std::string_view pkt, char delimiter) const;
@@ -80,4 +90,5 @@ private:
     bool handle_ack(time_point now, const ParsedData& parsed);
     bool handle_data(time_point now, const ParsedData& parsed);
     bool handle_close(const ParsedData& parsed);
+    void add_timeout(time_point now, const connection_id&);
 };

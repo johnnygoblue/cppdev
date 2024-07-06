@@ -42,6 +42,7 @@ bool packet_validator::handle_open(time_point now, const ParsedData& parsed) {
     }
     connections_[connection_id] = {now, 0};
     open_connections_per_ip_[src_ip].insert(connection_id);
+    add_timeout(now, connection_id);
     return true;
 }
 
@@ -55,6 +56,7 @@ bool packet_validator::handle_ack(time_point now, const ParsedData& parsed) {
         return false;
     }
     connections_[connection_id].last_active = now;
+    add_timeout(now, connection_id);
     return true;
 }
 
@@ -74,6 +76,7 @@ bool packet_validator::handle_data(time_point now, const ParsedData& parsed) {
         } else {
             connections_[connection_id].bytes_sent += parsed.payload->size();
             connections_[connection_id].last_active = now;
+            add_timeout(now, connection_id);
         }
     }
     return true;
@@ -90,28 +93,30 @@ bool packet_validator::handle_close(const ParsedData& parsed) {
     }
     connections_.erase(connection_id);
     open_connections_per_ip_[src_ip].erase(connection_id);
+    timeout_map_.erase(connection_id);
     return true;
 }
 
 int packet_validator::handle_timeouts(time_point now) {
+    constexpr auto tps_per_sec = 1000000000LL;
     std::unique_lock<std::mutex> lock(mtx_);
     int timeout_count = 0;
 
-    std::deque<std::string> to_remove;
-    for (const auto& [connection_id, conn] : connections_) {
-        if (now - conn.last_active > cfg_.timeout_sec * 1000000000LL) {
-            to_remove.push_back(connection_id);
+    while(!timeout_queue_.empty()) {
+        const auto& top = timeout_queue_.top();
+        if (now - top.last_active > cfg_.timeout_sec * tps_per_sec) {
+            connections_.erase(top.conn_id);
+            size_t pos = top.conn_id.find(':');
+            std::string src_ip = top.conn_id.substr(0, pos);
+            open_connections_per_ip_[src_ip].erase(top.conn_id);
+            if (timeout_map_.erase(top.conn_id)) {
+                ++timeout_count; // if indeed removing a valid connection
+            }
+            timeout_queue_.pop();
+        } else {
+            break;
         }
     }
-
-    for (const auto& connection_id : to_remove) {
-        connections_.erase(connection_id);
-        size_t pos = connection_id.find(':');
-        std::string src_ip = connection_id.substr(0, pos);
-        open_connections_per_ip_[src_ip].erase(connection_id);
-        timeout_count++;
-    }
-
     return timeout_count;
 }
 
@@ -136,6 +141,12 @@ packet_validator::ParsedData packet_validator::parse_packet(std::string_view str
         result.payload = std::nullopt;
     }
     return result;
+}
+
+void packet_validator::add_timeout(time_point now, const connection_id& conn_id) {
+    ConnectionTimeout timeout{now, conn_id};
+    timeout_queue_.push(timeout);
+    timeout_map_[conn_id] = timeout;
 }
 
 std::ostream& operator<<(std::ostream& os, const packet_validator::ParsedData& data) {
