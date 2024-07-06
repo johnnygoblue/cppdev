@@ -36,10 +36,10 @@ bool packet_validator::handle_packet(time_point now, std::string_view pkt) {
         if (connections_.find(connection_id) == connections_.end()) {
             return false;
         }
-        if (connections_[connection_id].data_bytes + payload.size() > cfg_.bytes_per_connection) {
+        if (connections_[connection_id].bytes_sent + payload.size() > cfg_.bytes_per_connection) {
             return false;
         }
-        connections_[connection_id].data_bytes += payload.size();
+        connections_[connection_id].bytes_sent += payload.size();
         connections_[connection_id].last_active = now;
         return true;
     } else if (message_type == "C") {

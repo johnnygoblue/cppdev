@@ -58,15 +58,17 @@ public:
     int handle_timeouts(time_point now);
 
 private:
+    using connection_id = std::string; // connection_id is of format "<src_ip>:<dst_ip>"
+    using sender_ip = std::string;     // cannot open connections more than `connections_per_ip`
     struct Connection {
-        time_point last_active;
-        size_t data_bytes;
+        time_point last_active;         // time point from last packet
+        size_t bytes_sent;              // number of data bytes already sent by this connection
     };
 
     config cfg_;
     std::mutex mtx_;
-    std::unordered_map<std::string, Connection> connections_;
-    std::unordered_map<std::string, std::unordered_set<std::string>> open_connections_per_ip_;
+    std::unordered_map<connection_id, Connection> connections_;
+    std::unordered_map<sender_ip, std::unordered_set<std::string>> open_connections_per_ip_;
 
     void cleanup_connections(time_point now);
 };
