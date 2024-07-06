@@ -36,6 +36,8 @@ amount of data are allowed within a connection.
 #include <unordered_set>
 #include <deque>
 #include <mutex>
+#include <string_view>
+#include <optional>
 
 class packet_validator
 {
@@ -61,14 +63,23 @@ private:
     using connection_id = std::string; // connection_id is of format "<src_ip>:<dst_ip>"
     using sender_ip = std::string;     // cannot open connections more than `connections_per_ip`
     struct Connection {
-        time_point last_active;         // time point from last packet
-        size_t bytes_sent;              // number of data bytes already sent by this connection
+        time_point last_active;        // time point from last packet
+        size_t bytes_sent;             // number of data bytes already sent by this connection
     };
-
+    struct ParsedData {                // parsed data in the pre-determined packet format
+        std::string_view src_ip;
+        std::string_view dst_ip;
+        char message_type;
+        std::optional<std::string_view> payload;
+    };
+    friend std::ostream& operator<<(std::ostream& os, const ParsedData& data);
     config cfg_;
     std::mutex mtx_;
     std::unordered_map<connection_id, Connection> connections_;
     std::unordered_map<sender_ip, std::unordered_set<std::string>> open_connections_per_ip_;
 
     void cleanup_connections(time_point now);
+    ParsedData parse_packet(std::string_view pkt, char delimiter);
 };
+
+std::ostream& operator<<(std::ostream& os, const packet_validator::ParsedData& data);
