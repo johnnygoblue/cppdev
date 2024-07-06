@@ -39,12 +39,10 @@ amount of data are allowed within a connection.
 #include <string_view>
 #include <optional>
 
-class packet_validator
-{
+class packet_validator {
 public:
     using time_point = uint64_t; // time point of a monotonic clock in nanoseconds
-    struct config
-    {
+    struct config {
         int timeout_sec; // timeout in seconds between packets when connection considered closed
         size_t connections_per_ip; // opening extra connection is invalid
         size_t bytes_per_connection; // data packet exceeding the limit is invalid
@@ -52,11 +50,7 @@ public:
 
     packet_validator(const config& cfg);
 
-    // return: 'true' if packet is valid
     bool handle_packet(time_point now, std::string_view pkt);
-
-    // Periodically called often enough for the validator to detect connection timeouts to properly handle further packets
-    // return: number of connection timeouts detected in this call
     int handle_timeouts(time_point now);
 
 private:
@@ -66,13 +60,15 @@ private:
         time_point last_active;        // time point from last packet
         size_t bytes_sent;             // number of data bytes already sent by this connection
     };
-    struct ParsedData {                // parsed data in the pre-determined packet format
+    struct ParsedData {                // parsed data in the given packet format
         std::string_view src_ip;
         std::string_view dst_ip;
         char message_type;
         std::optional<std::string_view> payload;
     };
+
     friend std::ostream& operator<<(std::ostream& os, const ParsedData& data);
+
     config cfg_;
     std::mutex mtx_;
     std::unordered_map<connection_id, Connection> connections_;
@@ -80,6 +76,8 @@ private:
 
     void cleanup_connections(time_point now);
     ParsedData parse_packet(std::string_view pkt, char delimiter);
+    bool handle_open(time_point now, const ParsedData& parsed);
+    bool handle_ack(time_point now, const ParsedData& parsed);
+    bool handle_data(time_point now, const ParsedData& parsed);
+    bool handle_close(const ParsedData& parsed);
 };
-
-std::ostream& operator<<(std::ostream& os, const packet_validator::ParsedData& data);

@@ -2,74 +2,95 @@
 
 #include "packet_validator.h"
 
+// Define a logging macro or function
+#define LOG_ERROR(message) std::cerr << message << std::endl;
+
 packet_validator::packet_validator(const config& cfg) : cfg_(cfg) {}
 
 bool packet_validator::handle_packet(time_point now, std::string_view pkt) {
-
-    struct ParsedData parsed = parse_packet(pkt, ':');
+    ParsedData parsed = parse_packet(pkt, ':');
     std::cout << parsed << std::endl;
-    std::string src_ip {parsed.src_ip};
-    std::string dst_ip {parsed.dst_ip};
 
-    std::string connection_id = std::string{parsed.src_ip} + ":" + std::string{parsed.dst_ip};
     std::unique_lock<std::mutex> lock(mtx_);
 
     switch (parsed.message_type) {
         case 'O':
-        {
-            if (open_connections_per_ip_[src_ip].size() >= cfg_.connections_per_ip) {
-                std::cout << "Error exceeds connections per ip" << std::endl;
-                return false;
-            }
-            if (connections_.find(connection_id) != connections_.end()) {
-                std::cout << "Error connection exists" << std::endl;
-                return false;
-            }
-            connections_[connection_id] = {now, 0};
-            open_connections_per_ip_[src_ip].insert(connection_id);
-            return true;
-        }
+            return handle_open(now, parsed);
         case 'A':
-        {
-            connection_id = dst_ip + ":" + src_ip;
-            if (connections_.find(connection_id) == connections_.end()) {
-                std::cout << "Error connection not found" << std::endl;
-                return false;
-            }
-            connections_[connection_id].last_active = now;
-            return true;
-        }
+            return handle_ack(now, parsed);
         case 'D':
-        {
-            if (connections_.find(connection_id) == connections_.end()) {
-                std::cout << "Error connection not found" << std::endl;
-                return false;
-            }
-            if (parsed.payload) {
-                if (parsed.payload->size() + connections_[connection_id].bytes_sent > cfg_.bytes_per_connection) {
-                    std::cout << "Error exceeds bytes per connection" << std::endl;
-                    return false;
-                } else {
-                    connections_[connection_id].bytes_sent += parsed.payload->size();
-                    connections_[connection_id].last_active = now;
-                }
-            }
-            return true;
-        }
+            return handle_data(now, parsed);
         case 'C':
-        {
-            if (connections_.find(connection_id) == connections_.end()) {
-                std::cout << "Error connection not found" << std::endl;
-                return false;
-            }
-            connections_.erase(connection_id);
-            open_connections_per_ip_[src_ip].erase(connection_id);
-            return true;
-        }
+            return handle_close(parsed);
         default:
-            std::cout << "Error unrecognized message type '" << parsed.message_type << "'" << std::endl;
+            LOG_ERROR("Error: Unrecognized message type '" << parsed.message_type << "'");
             return false;
     }
+}
+
+bool packet_validator::handle_open(time_point now, const ParsedData& parsed) {
+    std::string src_ip {parsed.src_ip};
+    std::string connection_id = std::string{parsed.src_ip} + ":" + std::string{parsed.dst_ip};
+
+    if (open_connections_per_ip_[src_ip].size() >= cfg_.connections_per_ip) {
+        LOG_ERROR("Error: Exceeds connections per IP");
+        return false;
+    }
+    if (connections_.find(connection_id) != connections_.end()) {
+        LOG_ERROR("Error: Connection already exists");
+        return false;
+    }
+    connections_[connection_id] = {now, 0};
+    open_connections_per_ip_[src_ip].insert(connection_id);
+    return true;
+}
+
+bool packet_validator::handle_ack(time_point now, const ParsedData& parsed) {
+    std::string dst_ip {parsed.dst_ip};
+    std::string src_ip {parsed.src_ip};
+    std::string connection_id = dst_ip + ":" + src_ip;
+
+    if (connections_.find(connection_id) == connections_.end()) {
+        LOG_ERROR("Error: Connection not found");
+        return false;
+    }
+    connections_[connection_id].last_active = now;
+    return true;
+}
+
+bool packet_validator::handle_data(time_point now, const ParsedData& parsed) {
+    std::string src_ip {parsed.src_ip};
+    std::string dst_ip {parsed.dst_ip};
+    std::string connection_id = src_ip + ":" + dst_ip;
+
+    if (connections_.find(connection_id) == connections_.end()) {
+        LOG_ERROR("Error: Connection not found");
+        return false;
+    }
+    if (parsed.payload) {
+        if (parsed.payload->size() + connections_[connection_id].bytes_sent > cfg_.bytes_per_connection) {
+            LOG_ERROR("Error: Exceeds bytes per connection");
+            return false;
+        } else {
+            connections_[connection_id].bytes_sent += parsed.payload->size();
+            connections_[connection_id].last_active = now;
+        }
+    }
+    return true;
+}
+
+bool packet_validator::handle_close(const ParsedData& parsed) {
+    std::string src_ip {parsed.src_ip};
+    std::string dst_ip {parsed.dst_ip};
+    std::string connection_id = src_ip + ":" + dst_ip;
+
+    if (connections_.find(connection_id) == connections_.end()) {
+        LOG_ERROR("Error: Connection not found");
+        return false;
+    }
+    connections_.erase(connection_id);
+    open_connections_per_ip_[src_ip].erase(connection_id);
+    return true;
 }
 
 int packet_validator::handle_timeouts(time_point now) {
@@ -114,7 +135,6 @@ packet_validator::ParsedData packet_validator::parse_packet(std::string_view str
     } else {
         result.payload = std::nullopt;
     }
-    //result.payload = start < str.size() ? str.substr(start) : std::nullopt;
     return result;
 }
 
