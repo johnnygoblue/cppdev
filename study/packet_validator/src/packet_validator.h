@@ -75,7 +75,7 @@ private:
     std::unordered_map<sender_ip, std::unordered_set<std::string>> open_connections_per_ip_;
 
     void cleanup_connections(time_point now);
-    ParsedData parse_packet(std::string_view pkt, char delimiter);
+    ParsedData parse_packet(std::string_view pkt, char delimiter) const;
     bool handle_open(time_point now, const ParsedData& parsed);
     bool handle_ack(time_point now, const ParsedData& parsed);
     bool handle_data(time_point now, const ParsedData& parsed);

@@ -115,7 +115,7 @@ int packet_validator::handle_timeouts(time_point now) {
     return timeout_count;
 }
 
-packet_validator::ParsedData packet_validator::parse_packet(std::string_view str, char delimiter) {
+packet_validator::ParsedData packet_validator::parse_packet(std::string_view str, char delimiter) const {
     size_t start = 0;
     size_t end = str.find(delimiter);
     ParsedData result;
