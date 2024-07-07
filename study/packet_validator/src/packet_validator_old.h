@@ -54,15 +54,13 @@ public:
     int handle_timeouts(time_point now);
 
 private:
-    using sender_ip = std::string_view; // using string_view to avoid copying
-    using connection_id = std::string;  // connection_id is of format "<src_ip>:<dst_ip>"
-
+    using sender_ip = std::string;     // cannot open connections more than `connections_per_ip`
+    using connection_id = std::string; // connection_id is of format "<src_ip>:<dst_ip>"
     struct Connection {
-        time_point last_active;         // time point from last packet
-        size_t bytes_sent;              // number of data bytes already sent by this connection
+        time_point last_active;        // time point from last packet
+        size_t bytes_sent;             // number of data bytes already sent by this connection
     };
-
-    struct ParsedData {                 // parsed data in the given packet format
+    struct ParsedData {                // parsed data in the given packet format
         std::string_view src_ip;
         std::string_view dst_ip;
         char message_type;
@@ -82,7 +80,7 @@ private:
     config cfg_;
     std::mutex mtx_;
     std::unordered_map<connection_id, Connection> connections_;
-    std::unordered_map<sender_ip, std::unordered_set<connection_id>> open_connections_per_ip_;
+    std::unordered_map<sender_ip, std::unordered_set<std::string>> open_connections_per_ip_;
     std::unordered_map<connection_id, ConnectionTimeout> timeout_map_;
     std::priority_queue<ConnectionTimeout> timeout_queue_;
 
