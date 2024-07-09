@@ -30,29 +30,32 @@ public:
             total_allocation += allocation;
     }
 
-    //// Templated constructor is an attempt to combine two constructors to avoid
-    //// code duplication (WIP)
-    //template<typename T>
-    //String(const T&& input, const Allocator& allocator_ = Allocator()) :
-    //    data(&a_null_byte), length(0), allocation(1), allocator(allocator_) {
-    //    if constexpr (is_char_array<T>::value) {
-    //        if (messages_wanted)
-    //            std::cout << "(CStringConstructor) String(const char* cstr_) called with: " << (input ? input : "") << std::endl;
-    //        initialize(input);
-    //    } else if constexpr (std::is_same_v<T, String<Allocator>>) {
-    //        if (messages_wanted)
-    //            std::cout << "(CopyConstructor) String(const String& original) called with: " << input.data << std::endl;
-    //        initialize(input.data);
-    //    }
-    //    ++number;
-    //    total_allocation += allocation;
-    //}
+    // Templated constructor is an attempt to combine two constructors to avoid
+    // code duplication (WIP)
+    template<typename T>
+    String(const T& input, const Allocator& allocator_ = Allocator()) :
+        data(&a_null_byte), length(0), allocation(1), allocator(allocator_) {
+        if constexpr (std::is_same_v<T, const char*>) {
+            if (messages_wanted)
+                std::cout << "(CStringConstructor) String(const char* cstr_) called with: " << (input ? input : "") << std::endl;
+            initialize(input);
+        } else if constexpr (std::is_same_v<T, String<Allocator>>) {
+            if (messages_wanted)
+                std::cout << "(CopyConstructor) String(const String& original) called with: " << input.data << std::endl;
+            initialize(input.data);
+        }
+        ++number;
+        total_allocation += allocation;
+    }
+    // With the CTAD it is required that we make the copy constructor forward to the templated constructor above
+    // so the compiler does not use the default generated one
+    String(const String& original) : String(original, original.allocator_) {}
 
-    String(const char* cstr_, const Allocator& allocator_ = Allocator());
+    //String(const char* cstr_, const Allocator& allocator_ = Allocator());
 
-    // The copy constructor initializes this String with the original's data,
-    // and gets minimum allocation.
-    String(const String& original, const Allocator& allocator_ = Allocator());
+    //// The copy constructor initializes this String with the original's data,
+    //// and gets minimum allocation.
+    //String(const String& original, const Allocator& allocator_ = Allocator());
 
     // Move constructor - take original's data, and set the original String
     // member variables to the empty state (do not initialize "this" String and swap).
@@ -178,31 +181,31 @@ If the input stream fails, str contains whatever characters were read. */
 template<typename Allocator>
 std::istream& operator>>(std::istream& is, String<Allocator>& str);
 
-// C-String constructor
-template<typename Allocator>
-String<Allocator>::String(const char* cstr_, const Allocator& allocator_) :
-    data(nullptr), length(0), allocation(1), allocator(allocator_) {
-    if (messages_wanted)
-        std::cout << "(CStringConstructor) String(const char* cstr_) called with: " << (cstr_ ? cstr_ : "") << std::endl;
-
-    initialize(cstr_);
-
-    ++number;
-    total_allocation += allocation;
-}
-
-// Copy constructor
-template<typename Allocator>
-String<Allocator>::String(const String<Allocator>& original, const Allocator& allocator_) :
-    data(nullptr), length(0), allocation(1), allocator(allocator_) {
-    if (messages_wanted)
-        std::cout << "(CopyConstructor) String(const String& original) called with: " << original.data << std::endl;
-
-    initialize(original.data);
-
-    ++number;
-    total_allocation += allocation;
-}
+//// C-String constructor
+//template<typename Allocator>
+//String<Allocator>::String(const char* cstr_, const Allocator& allocator_) :
+//    data(nullptr), length(0), allocation(1), allocator(allocator_) {
+//    if (messages_wanted)
+//        std::cout << "(CStringConstructor) String(const char* cstr_) called with: " << (cstr_ ? cstr_ : "") << std::endl;
+//
+//    initialize(cstr_);
+//
+//    ++number;
+//    total_allocation += allocation;
+//}
+//
+//// Copy constructor
+//template<typename Allocator>
+//String<Allocator>::String(const String<Allocator>& original, const Allocator& allocator_) :
+//    data(nullptr), length(0), allocation(1), allocator(allocator_) {
+//    if (messages_wanted)
+//        std::cout << "(CopyConstructor) String(const String& original) called with: " << original.data << std::endl;
+//
+//    initialize(original.data);
+//
+//    ++number;
+//    total_allocation += allocation;
+//}
 
 // Move constructor
 template<typename Allocator>
